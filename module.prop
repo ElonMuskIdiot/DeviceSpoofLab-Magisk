@@ -1,0 +1,7 @@
+id=devicespooflab
+name=DeviceSpoofLabs
+version=1.0
+versionCode=1
+author=@yubunus
+description=Spoof device identity props for testing. Includes manual ANDROID_ID changer. Use responsibly for development and testing purposes only.
+updateJson=
