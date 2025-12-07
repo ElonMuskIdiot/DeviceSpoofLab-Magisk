@@ -5,7 +5,7 @@ A Magisk module for spoofing device identity properties. Spoofs device as a bran
 ## Limitations (Cannot Be Spoofed with Pure Magisk)
 
 **Note:** The identifiers below require advanced hooks and cannot be spoofed by Magisk alone.<br>
-They are supported via our companion Xposed module: [DeviceSpoofLabs-Hooks](https://github.com/yubunus/DeviceSpoofLabs-Hooks)
+They are supported via our companion Xposed module: [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
 
 | Identifier                            | Reason                                       |
 | ------------------------------------- | -------------------------------------------- |
