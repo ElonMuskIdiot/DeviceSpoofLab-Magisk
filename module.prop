@@ -1,7 +1,6 @@
 id=devicespooflab
 name=DeviceSpoofLabs
-version=2.0
-versionCode=2
+version=2.1
+versionCode=4
 author=@yubunus
-description=Device identity spoofing with persona management. Spoofs as Pixel 7 Pro Android 15. Includes CLI (devicespooflabs), app data cleaner, and auto-apply on boot. For development and testing purposes only.
-updateJson=
+description=Configurable device prop spoofing with persona management and app data clearing tools. Includes CLI (devicespooflabs). For development and testing only.

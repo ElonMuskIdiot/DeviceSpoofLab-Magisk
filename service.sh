@@ -1,123 +1,238 @@
-# Description: Post-boot tasks - CLI symlink, permissions, ANDROID_ID application
-# This script runs after boot is complete (late_start service)
+# Applies all spoofed props after boot, plus ANDROID_ID and screen settings
 
 MODDIR=${0%/*}
-
+CONFIG_DIR="${MODDIR}/config"
+PERSONA_FLAG="${CONFIG_DIR}/persona_active"
 LOG_FILE="/data/local/tmp/devicespooflab.log"
-PERSONAS_DIR="${MODDIR}/personas"
-CURRENT_PERSONA="${PERSONAS_DIR}/current.conf"
-CLI_SCRIPT="${MODDIR}/common/devicespooflabs.sh"
-CLI_SYMLINK="/system/bin/devicespooflabs"
 
 log() {
-    local TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    echo "[${TIMESTAMP}] [service] $1" >> "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [service] $1" >> "$LOG_FILE"
 }
 
-log "DeviceSpoofLabs service script starting..."
+generate_hex() {
+    local LEN=${1:-16}
+    cat /dev/urandom | tr -dc 'a-f0-9' | head -c "$LEN"
+}
 
-# Fix Script Permissions
-log "Setting script permissions..."
+generate_serial() {
+    cat /dev/urandom | tr -dc 'A-Z0-9' | head -c 12
+}
 
-chmod 755 "$MODDIR/post-fs-data.sh" 2>/dev/null
-chmod 755 "$MODDIR/service.sh" 2>/dev/null
-chmod 755 "$MODDIR/common/devicespooflabs.sh" 2>/dev/null
-chmod 755 "$MODDIR/common/persona_manager.sh" 2>/dev/null
-chmod 755 "$MODDIR/common/app_cleaner.sh" 2>/dev/null
-chmod 755 "$MODDIR/common/utils.sh" 2>/dev/null
+resolve_value() {
+    local VAL="$1"
+    case "$VAL" in
+        '${RANDOM_HEX:'*'}')
+            local LEN=$(echo "$VAL" | sed 's/.*:\([0-9]*\)}.*/\1/')
+            generate_hex "$LEN"
+            ;;
+        '${RANDOM_SERIAL}')
+            generate_serial
+            ;;
+        *)
+            echo "$VAL"
+            ;;
+    esac
+}
 
-log "Script permissions set"
+wait_for_boot_complete() {
+    local WAIT=0
+    local LIMIT=120
 
-# Make CLI: 'devicespooflabs' command
-log "Creating CLI symlink..."
+    while [ $WAIT -lt $LIMIT ]; do
+        local STATE
+        STATE=$(getprop sys.boot_completed 2>/dev/null)
+        [ "$STATE" = "1" ] && return 0
+        sleep 2
+        WAIT=$((WAIT + 2))
+    done
 
-if [ -f "$CLI_SCRIPT" ]; then
-    # Remove old symlink if exists
-    [ -L "$CLI_SYMLINK" ] && rm -f "$CLI_SYMLINK"
+    return 1
+}
 
-    mkdir -p "${MODDIR}/system/bin" 2>/dev/null
+wait_for_resetprop() {
+    local WAIT=0
+    while [ $WAIT -lt 30 ]; do
+        command -v resetprop >/dev/null 2>&1 && return 0
+        sleep 1
+        WAIT=$((WAIT + 1))
+    done
+    return 1
+}
 
-    cat > "${MODDIR}/system/bin/devicespooflabs" << 'WRAPPER_EOF'
-#!/system/bin/sh
-exec /data/adb/modules/devicespooflab/common/devicespooflabs.sh "$@"
-WRAPPER_EOF
+apply_prop() {
+    local PROP="$1"
+    local VALUE="$2"
 
-    chmod 755 "${MODDIR}/system/bin/devicespooflabs"
-    log "CLI wrapper created at ${MODDIR}/system/bin/devicespooflabs"
-else
-    log "WARNING: CLI script not found: $CLI_SCRIPT"
-fi
+    [ -z "$VALUE" ] && return 1
 
-# Check if Persona is Configured
-if [ ! -f "$CURRENT_PERSONA" ]; then
-    log "No persona configured yet. Run 'devicespooflabs' to set up."
-    log "Skipping ANDROID_ID and screen settings."
+    if resetprop -n "$PROP" "$VALUE" 2>/dev/null; then
+        log "Prop set: $PROP=$VALUE"
+        return 0
+    else
+        log "ERROR: Failed to set prop: $PROP"
+        return 1
+    fi
+}
+
+apply_config_file() {
+    local FILE="$1"
+    local NAME=$(basename "$FILE")
+
+    [ ! -f "$FILE" ] && return
+
+    if grep -q '^FILE_DISABLED' "$FILE" 2>/dev/null; then
+        log "Skipping (disabled): $NAME"
+        return
+    fi
+
+    log "Parsing: $NAME"
+
+    while IFS= read -r LINE || [ -n "$LINE" ]; do
+        case "$LINE" in ''|'#'*) continue ;; esac
+        [ "$LINE" = "FILE_ENABLED" ] && continue
+
+        local STATUS=$(echo "$LINE" | cut -d',' -f1)
+        local PROP=$(echo "$LINE" | cut -d',' -f2)
+        local RAW=$(echo "$LINE" | cut -d',' -f3-)
+
+        [ "$STATUS" != "ENABLED" ] && continue
+
+        # Skip entries handled separately
+        case "$PROP" in
+            ANDROID_ID|SCREEN_*) continue ;;
+        esac
+
+        local VALUE
+        VALUE=$(resolve_value "$RAW")
+        [ -n "$VALUE" ] && apply_prop "$PROP" "$VALUE"
+
+    done < "$FILE"
+}
+
+apply_all_props() {
+    for CONF in \
+        device_identity.conf \
+        build_info.conf \
+        security.conf \
+        hardware.conf \
+        identifiers.conf \
+        carrier.conf \
+        custom.conf; do
+
+        [ -f "${CONFIG_DIR}/${CONF}" ] && apply_config_file "${CONFIG_DIR}/${CONF}"
+    done
+}
+
+apply_android_id() {
+    local FILE="${CONFIG_DIR}/identifiers.conf"
+    [ ! -f "$FILE" ] && return
+
+    while IFS= read -r LINE || [ -n "$LINE" ]; do
+        case "$LINE" in ''|'#'*) continue ;; esac
+
+        local STATUS=$(echo "$LINE" | cut -d',' -f1)
+        local NAME=$(echo "$LINE" | cut -d',' -f2)
+        local RAW=$(echo "$LINE" | cut -d',' -f3-)
+
+        if [ "$STATUS" = "ENABLED" ] && [ "$NAME" = "ANDROID_ID" ]; then
+            local VALUE
+            VALUE=$(resolve_value "$RAW")
+            [ -z "$VALUE" ] && return
+
+            # Poll aggressively for settings provider (0.2s intervals)
+            local WAIT=0
+            while [ $WAIT -lt 300 ]; do
+                CURRENT=$(settings get secure android_id 2>/dev/null)
+                if [ -n "$CURRENT" ] && [ "$CURRENT" != "null" ]; then
+                    settings put secure android_id "$VALUE" 2>/dev/null
+                    log "ANDROID_ID set: $VALUE (after ${WAIT}x0.2s)"
+                    return 0
+                fi
+                sleep 0.2
+                WAIT=$((WAIT + 1))
+            done
+
+            log "ERROR: Settings provider not ready after 60s"
+            return 1
+        fi
+    done < "$FILE"
+}
+
+apply_screen_settings() {
+    local FILE="${CONFIG_DIR}/hardware.conf"
+    [ ! -f "$FILE" ] && return
+
+    local WIDTH="" HEIGHT="" DENSITY=""
+
+    while IFS= read -r LINE || [ -n "$LINE" ]; do
+        case "$LINE" in ''|'#'*) continue ;; esac
+
+        local STATUS=$(echo "$LINE" | cut -d',' -f1)
+        local NAME=$(echo "$LINE" | cut -d',' -f2)
+        local VALUE=$(echo "$LINE" | cut -d',' -f3-)
+
+        [ "$STATUS" != "ENABLED" ] && continue
+
+        case "$NAME" in
+            SCREEN_WIDTH) WIDTH="$VALUE" ;;
+            SCREEN_HEIGHT) HEIGHT="$VALUE" ;;
+            SCREEN_DENSITY) DENSITY="$VALUE" ;;
+        esac
+    done < "$FILE"
+
+    # Give WM a moment
+    sleep 3
+
+    if [ -n "$WIDTH" ] && [ -n "$HEIGHT" ]; then
+        wm size "${WIDTH}x${HEIGHT}" 2>/dev/null
+        log "Screen size: ${WIDTH}x${HEIGHT}"
+    fi
+
+    if [ -n "$DENSITY" ]; then
+        wm density "$DENSITY" 2>/dev/null
+        log "Screen density: $DENSITY"
+    fi
+}
+
+log "Service starting..."
+
+chmod 755 "$MODDIR/common/"*.sh 2>/dev/null
+
+if [ -f "${MODDIR}/disable" ]; then
+    log "Module disabled - skipping"
     exit 0
 fi
 
-# Apply ANDROID_ID
-log "Checking ANDROID_ID..."
-
-if [ -f "$CURRENT_PERSONA" ]; then
-    . "$CURRENT_PERSONA"
-
-    if [ -n "$ANDROID_ID" ]; then
-        # Wait for settings service to be ready
-        COUNTER=0
-        while [ $COUNTER -lt 60 ]; do
-            CURRENT_ID=$(settings get secure android_id 2>/dev/null)
-            if [ -n "$CURRENT_ID" ] && [ "$CURRENT_ID" != "null" ]; then
-                break
-            fi
-            sleep 1
-            COUNTER=$((COUNTER + 1))
-        done
-
-        if [ "$CURRENT_ID" != "$ANDROID_ID" ]; then
-            log "Applying ANDROID_ID: $ANDROID_ID"
-            settings put secure android_id "$ANDROID_ID" 2>/dev/null
-
-            # Verify
-            NEW_ID=$(settings get secure android_id 2>/dev/null)
-            if [ "$NEW_ID" = "$ANDROID_ID" ]; then
-                log "ANDROID_ID applied successfully"
-            else
-                log "WARNING: ANDROID_ID may not have been applied correctly"
-            fi
-        else
-            log "ANDROID_ID already matches persona"
-        fi
-    fi
+if [ ! -f "$PERSONA_FLAG" ]; then
+    log "No active persona - skipping"
+    exit 0
 fi
 
-# Apply Screen Size/Density
-log "Checking screen settings..."
+[ ! -d "$CONFIG_DIR" ] && exit 0
 
-if [ -f "$CURRENT_PERSONA" ]; then
-    . "$CURRENT_PERSONA"
-
-    # Wait for window manager
-    sleep 5
-
-    if [ -n "$SCREEN_WIDTH" ] && [ -n "$SCREEN_HEIGHT" ]; then
-        CURRENT_SIZE=$(wm size 2>/dev/null | grep -oE '[0-9]+x[0-9]+' | tail -1)
-        TARGET_SIZE="${SCREEN_WIDTH}x${SCREEN_HEIGHT}"
-
-        if [ "$CURRENT_SIZE" != "$TARGET_SIZE" ]; then
-            log "Applying screen size: $TARGET_SIZE"
-            wm size "$TARGET_SIZE" 2>/dev/null
-        fi
-    fi
-
-    if [ -n "$SCREEN_DENSITY" ]; then
-        CURRENT_DENSITY=$(wm density 2>/dev/null | grep -oE '[0-9]+' | tail -1)
-
-        if [ "$CURRENT_DENSITY" != "$SCREEN_DENSITY" ]; then
-            log "Applying screen density: $SCREEN_DENSITY"
-            wm density "$SCREEN_DENSITY" 2>/dev/null
-        fi
-    fi
+if wait_for_resetprop; then
+    log "resetprop ready"
+else
+    log "resetprop not available - aborting spoof"
+    exit 1
 fi
 
-log "DeviceSpoofLabs service script complete"
-log "Run 'devicespooflabs' command to manage personas"
+[ -f "/system/bin/devicespooflabs" ] && log "CLI available"
+
+# ANDROID_ID spoofing as early as possible (don't wait for full boot)
+# Settings provider becomes available before boot_completed
+log "Attempting early ANDROID_ID spoof..."
+apply_android_id
+
+log "Waiting for boot completion..."
+if wait_for_boot_complete; then
+    log "Boot completed detected"
+else
+    log "Boot completion wait timed out - continuing"
+fi
+
+# Apply all props and screen settings after boot
+apply_all_props
+apply_screen_settings
+
+log "Service complete"

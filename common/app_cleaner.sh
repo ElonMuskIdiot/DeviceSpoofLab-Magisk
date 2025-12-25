@@ -1,214 +1,238 @@
-# Description: Clear app data and cache for third-party apps
+# Clears all 3rd party apps and some system apps(to prevent webview and chrome from saving data)
 
 SCRIPT_DIR="${0%/*}"
-. "${SCRIPT_DIR}/utils.sh"
+[ -f "${SCRIPT_DIR}/utils.sh" ] && . "${SCRIPT_DIR}/utils.sh"
 
-# System Apps to Also Clear (Browser/WebView)
-# if it breaks your apps or android services, remove these lines
-SYSTEM_APPS_TO_CLEAR="
-com.android.chrome
-com.google.android.webview
-com.android.webview
-com.google.android.gms
-com.google.android.gsf
-"
-
-list_third_party_apps() {
-    pm list packages -3 2>/dev/null | sed 's/package://' | sort
+log_cleaner() {
+    local MSG="$1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [app_cleaner] $MSG" >> "$LOG_FILE"
 }
 
-
-count_third_party_apps() {
-    list_third_party_apps | wc -l | tr -d ' '
+check_pm_available() {
+    if ! command -v pm >/dev/null 2>&1; then
+        print_error "Package Manager (pm) not available"
+        log_cleaner "ERROR: pm command not found"
+        return 1
+    fi
+    return 0
 }
 
 clear_app_data() {
     local PACKAGE="$1"
 
-    if [ -z "$PACKAGE" ]; then
-        print_error "No package specified"
-        return 1
-    fi
+    pm clear "$PACKAGE" >/dev/null 2>&1
+    local RESULT=$?
 
-    if ! pm list packages | grep -q "package:${PACKAGE}$"; then
-        print_warning "Package not found: $PACKAGE"
-        return 1
-    fi
-
-    print_step "Clearing: $PACKAGE"
-    pm clear "$PACKAGE" 2>/dev/null
-
-    if [ $? -eq 0 ]; then
-        log_success "Cleared app data: $PACKAGE"
+    if [ $RESULT -eq 0 ]; then
+        log_cleaner "SUCCESS: Cleared $PACKAGE"
         return 0
     else
-        log_error "Failed to clear: $PACKAGE"
+        log_cleaner "FAILED: Could not clear $PACKAGE (code: $RESULT)"
         return 1
     fi
+}
+
+# Denylist of things to never clear
+get_protected_packages() {
+    echo "com.topjohnwu.magisk"
+    echo "io.github.vvb2060.magisk"
+    echo "org.meowcat.edxposed.manager"
+    echo "de.robv.android.xposed.installer"
+    echo "io.github.lsposed.manager"
+    echo "com.android.shell"
+    echo "com.android.systemui"
+    echo "com.oasisfeng.island"
+    echo "com.devicespooflab.hooks"
+    echo "com.enflick.android.TextNow"
+}
+
+is_protected_package() {
+    local PKG="$1"
+
+    case "$PKG" in
+        com.topjohnwu.magisk|\
+        io.github.vvb2060.magisk|\
+        org.meowcat.edxposed.manager|\
+        de.robv.android.xposed.installer|\
+        io.github.lsposed.manager|\
+        com.android.shell|\
+        com.android.systemui|\
+        com.oasisfeng.island|\
+        com.devicespooflab.hooks|\
+        com.enflick.android.TextNow)
+            return 0
+            ;;
+        *ksuwebui*)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+# quick list of system apps to clear, add to this list if you wanna manually clear system apps
+get_system_apps_to_clear() {
+    echo "com.android.chrome"
+    echo "com.google.android.webview"
+    echo "com.android.webview"
+    echo "com.google.android.gms"
+    echo "com.google.android.gsf"
 }
 
 clear_all_third_party_apps() {
-    print_header "Clear All Third-Party Apps"
+    local TOTAL=0
+    local SUCCESS=0
+    local FAILED=0
+    local SKIPPED=0
 
-    local APPS=$(list_third_party_apps)
-    local COUNT=$(echo "$APPS" | wc -l | tr -d ' ')
+    print_info "Fetching list of 3rd party apps..."
+    log_cleaner "Starting 3rd party app data clearing"
 
-    if [ -z "$APPS" ] || [ "$COUNT" -eq 0 ]; then
-        print_info "No third-party apps found"
+    local PACKAGES=$(pm list packages -3 2>/dev/null | cut -d':' -f2)
+
+    if [ -z "$PACKAGES" ]; then
+        print_warn "No 3rd party apps found"
+        log_cleaner "No 3rd party packages detected"
         return 0
     fi
 
-    print_info "Found $COUNT third-party apps"
-    echo ""
+    TOTAL=$(echo "$PACKAGES" | wc -l | tr -d ' ')
+    print_info "Found $TOTAL 3rd party apps"
 
+    local COUNT=0
+    local PROTECTED=0
+    for PKG in $PACKAGES; do
+        COUNT=$((COUNT + 1))
+        [ -z "$PKG" ] && continue
+
+        if is_protected_package "$PKG"; then
+            SKIPPED=$((SKIPPED + 1))
+            PROTECTED=$((PROTECTED + 1))
+            log_cleaner "PROTECTED: Skipped $PKG (on denylist)"
+            continue
+        fi
+
+        if [ $((COUNT % 10)) -eq 0 ]; then
+            print_info "Progress: $COUNT/$TOTAL apps processed..."
+        fi
+
+        if ! pm list packages "$PKG" | grep -q "$PKG"; then
+            SKIPPED=$((SKIPPED + 1))
+            continue
+        fi
+
+        if clear_app_data "$PKG"; then
+            SUCCESS=$((SUCCESS + 1))
+        else
+            FAILED=$((FAILED + 1))
+        fi
+
+        sleep 0.1
+    done
+
+    echo ""
+    print_ok "Cleared $SUCCESS 3rd party apps"
+    [ $PROTECTED -gt 0 ] && print_info "Protected $PROTECTED critical apps (Magisk, LSPosed, etc.)"
+    [ $FAILED -gt 0 ] && print_warn "Failed to clear $FAILED apps"
+    [ $SKIPPED -gt 0 ] && print_info "Skipped $SKIPPED other apps"
+
+    log_cleaner "3rd party apps: SUCCESS=$SUCCESS, PROTECTED=$PROTECTED, FAILED=$FAILED, SKIPPED=$SKIPPED"
+}
+
+# Clear critical system apps
+clear_system_apps() {
+    local TOTAL=0
     local SUCCESS=0
     local FAILED=0
 
-    echo "$APPS" | while read -r PACKAGE; do
-        if [ -n "$PACKAGE" ]; then
-            if clear_app_data "$PACKAGE"; then
-                SUCCESS=$((SUCCESS + 1))
-            else
-                FAILED=$((FAILED + 1))
-            fi
+    print_info "Clearing critical system apps..."
+    log_cleaner "Starting system app data clearing"
+
+    for PKG in $(get_system_apps_to_clear); do
+        TOTAL=$((TOTAL + 1))
+
+        if ! pm list packages "$PKG" | grep -q "$PKG"; then
+            print_warn "$PKG not found on this device"
+            log_cleaner "SKIPPED: $PKG (not installed)"
+            continue
         fi
-    done
 
-    echo ""
-    print_success "Cleared $SUCCESS apps"
-    if [ $FAILED -gt 0 ]; then
-        print_warning "Failed to clear $FAILED apps"
-    fi
+        print_info "Clearing: $PKG"
 
-    return 0
-}
-
-clear_system_browser_apps() {
-    print_header "Clear System Browser/WebView Apps"
-
-    local CLEARED=0
-
-    for PACKAGE in $SYSTEM_APPS_TO_CLEAR; do
-        # Check if package exists
-        if pm list packages | grep -q "package:${PACKAGE}$"; then
-            print_step "Clearing: $PACKAGE"
-            pm clear "$PACKAGE" 2>/dev/null
-            if [ $? -eq 0 ]; then
-                CLEARED=$((CLEARED + 1))
-                print_success "Cleared: $PACKAGE"
-            else
-                print_warning "Could not clear: $PACKAGE (may require more permissions)"
-            fi
+        if clear_app_data "$PKG"; then
+            SUCCESS=$((SUCCESS + 1))
+            print_ok "  Cleared $PKG"
         else
-            print_info "Not installed: $PACKAGE"
+            FAILED=$((FAILED + 1))
+            print_error "  Failed to clear $PKG"
         fi
     done
 
     echo ""
-    print_info "Cleared $CLEARED system apps"
-    return 0
+    print_ok "Cleared $SUCCESS/$TOTAL system apps"
+    [ $FAILED -gt 0 ] && print_warn "Failed to clear $FAILED system apps"
+
+    log_cleaner "System apps: SUCCESS=$SUCCESS, FAILED=$FAILED, TOTAL=$TOTAL"
 }
 
 clear_all_apps() {
-    print_header "Clear ALL App Data"
-
-    print_warning "This will clear data for:"
-    echo "  - All third-party (user-installed) apps"
-    echo "  - Chrome browser"
-    echo "  - WebView"
-    echo "  - Google Play Services"
-    echo "  - Google Services Framework"
     echo ""
-    print_warning "You will be logged out of ALL apps!"
-    print_warning "App settings and saved data will be LOST!"
+    print_color "$YELLOW" "╔═══════════════════════════════════════════════╗"
+    print_color "$YELLOW" "║   APP DATA & CACHE CLEANER                    ║"
+    print_color "$YELLOW" "╚═══════════════════════════════════════════════╝"
     echo ""
 
-    if ! confirm "Are you absolutely sure?"; then
+    print_warn "WARNING: This will clear ALL app data and cache!"
+    print_warn "This includes:"
+    print_warn "  - All 3rd party apps (game progress, logins, etc)"
+    print_warn "  - Chrome browser (history, passwords, cookies)"
+    print_warn "  - Google Play Services & GSF"
+    print_warn "  - WebView"
+    echo ""
+    print_color "$GREEN" "Protected (will NOT be cleared):"
+    print_info "  - Magisk & LSPosed (root management apps)"
+    print_info "  - System UI & Shell"
+    echo ""
+    print_color "$RED" "This operation CANNOT be undone!"
+    echo ""
+    print_info "Apps will act like they're freshly installed."
+    echo ""
+
+    echo -n "Continue? (y/n): "
+    read -r CONFIRM
+
+    if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
         print_info "Operation cancelled"
+        log_cleaner "User cancelled app clearing"
         return 0
     fi
 
-    echo ""
-    log_info "User confirmed clearing all app data"
+    if ! check_pm_available; then
+        return 1
+    fi
 
-    print_step "Clearing third-party apps..."
-    local APPS=$(list_third_party_apps)
+    log_cleaner "=========================================="
+    log_cleaner "Starting full app clear operation"
 
-    echo "$APPS" | while read -r PACKAGE; do
-        if [ -n "$PACKAGE" ]; then
-            clear_app_data "$PACKAGE"
-        fi
-    done
+    local START_TIME=$(date +%s)
 
-    echo ""
-
-    print_step "Clearing system apps..."
-    clear_system_browser_apps
+    clear_system_apps
 
     echo ""
-    print_success "All app data cleared!"
-    log_success "All app data cleared"
+    print_info "Pausing for 2 seconds..."
+    sleep 2
 
-    return 0
-}
+    clear_all_third_party_apps
 
-show_app_cleaner_menu() {
-    while true; do
-        print_header "App Data / Cache Tools"
+    local END_TIME=$(date +%s)
+    local DURATION=$((END_TIME - START_TIME))
 
-        local APP_COUNT=$(count_third_party_apps)
-        print_info "Third-party apps installed: $APP_COUNT"
-        echo ""
+    echo ""
+    print_color "$GREEN" "=========================================="
+    print_ok "App clearing complete in ${DURATION}s"
+    print_color "$GREEN" "=========================================="
+    print_warn "Reboot recommended for best results"
 
-        echo "  [1] Clear ALL third-party app data"
-        echo "  [2] Clear Chrome/WebView/GMS only"
-        echo "  [3] Clear EVERYTHING (third-party + system)"
-        echo "  [4] List installed third-party apps"
-        echo "  [0] Back"
-        echo ""
-        echo -n "Select an option: "
-        read -r CHOICE
-
-        case "$CHOICE" in
-            1)
-                echo ""
-                print_warning "This will clear data for ALL $APP_COUNT third-party apps!"
-                print_warning "You will be logged out of all apps!"
-                echo ""
-                if confirm "Continue?"; then
-                    clear_all_third_party_apps
-                else
-                    print_info "Cancelled"
-                fi
-                press_enter
-                ;;
-            2)
-                echo ""
-                clear_system_browser_apps
-                press_enter
-                ;;
-            3)
-                echo ""
-                clear_all_apps
-                press_enter
-                ;;
-            4)
-                echo ""
-                print_header "Installed Third-Party Apps"
-                list_third_party_apps | while read -r PKG; do
-                    echo "  $PKG"
-                done
-                echo ""
-                print_info "Total: $APP_COUNT apps"
-                press_enter
-                ;;
-            0)
-                return 0
-                ;;
-            *)
-                print_error "Invalid option"
-                sleep 1
-                ;;
-        esac
-    done
+    log_cleaner "App clear completed in ${DURATION}s"
+    log_cleaner "=========================================="
 }

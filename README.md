@@ -1,59 +1,8 @@
 # DeviceSpoofLabs
 
-A Magisk module for spoofing device identity properties. Spoofs device as a brand new Google Pixel 7 Pro running Android 15 with comprehensive persona management. For development and testing purposes only.
-
-## Limitations (Cannot Be Spoofed with Pure Magisk)
-
-**Note:** The identifiers below require advanced hooks and cannot be spoofed by Magisk alone.<br>
-They are supported via our companion Xposed module: [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
-
-| Identifier                            | Reason                                       |
-| ------------------------------------- | -------------------------------------------- |
-| **IMEI/MEID**                         | Requires TelephonyManager framework hooks    |
-| **IMSI**                              | Requires SIM framework hooks                 |
-| **EID**                               | Requires eUICC framework hooks               |
-| **SIM Serial (ICCID)**                | Requires TelephonyManager hooks              |
-| **MAC Address**                       | Network-level change may break connectivity  |
-| **IP Address**                        | Network-level change may break connectivity  |
-| **GAID (Advertising ID)**             | Requires Google Play Services hooks          |
-| **Google App Set ID**                 | Requires Play Services hooks                 |
-| **MediaDrm deviceUniqueId**           | Requires DRM framework hooks                 |
-| **Widevine UUID**                     | Requires DRM framework hooks                 |
-| **Installation UUID / App Device ID** | Per-app storage (cleared via app data reset) |
-
-**What CAN be spoofed:**
-
-- All `ro.*` build properties (50+ props)
-- `Settings.Secure.ANDROID_ID`
-- Screen size/density via `wm` commands
-- GSM operator properties
-- Serial numbers
-
----
-
-## Legal Disclaimer
-
-**THIS MODULE IS FOR EDUCATIONAL, TESTING, AND DEVELOPMENT PURPOSES ONLY.**
-
-- Use this module responsibly and only on devices you own
-- Do NOT use to bypass app restrictions, violate terms of service, or engage in fraudulent activity
-- The author (@yubunus) is NOT responsible for any misuse or damage
-- Changing device identifiers may violate app terms of service
-- Some apps may ban accounts for device spoofing
-- Use at your own risk
-
----
+A Magisk module for spoofing device identity properties. Spoofs device as a brand new Google Pixel 7 Pro running Android 15 with persona management. For development and testing purposes only. Best if used with [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
 
 ## Features
-
-### v2.0 - Persona Management System
-
-- **Target Device**: Google Pixel 7 Pro (cheetah)
-- **Android Version**: Android 15
-- **Build**: AP4A.241205.013 (December 2024)
-- **Security Patch**: 2024-12-05
-
-### Key Features
 
 1. **Interactive CLI** (`devicespooflabs` command)
 
@@ -89,7 +38,27 @@ They are supported via our companion Xposed module: [DeviceSpoofLab-Hooks](https
 - ANDROID_ID (randomized per persona)
 - Screen size/density (1440x3120 @ 512dpi)
 
----
+## Limitations (Cannot Be Spoofed with Pure Magisk)
+
+1. Props
+   There are 2 ways to spoof props. One is spoofing them at boot runtime, and the other is spoofing them after boot. The problem with spoofing props at boot runtime is that it directly affects your systems Hardware Abstraction Layer(HAL), so if you change props such as ro.hardware, it will corrupt your boot process and prevent your device from booting. The second problem which is spoofing these after "HAL" and after boot is that many apps capture your props and device data at boot runtime, so if you change props after boot, it will not affect the apps that have already captured your props. An example is apps that use Cronet.
+2. Framework level identifiers
+   Some identifiers that apps track, such as IMEI, IMSI, MediaDrm Id, GAID, Keystore Ids, etc. are stored in the framework layer, and are not accessible to Magisk. Pretty much means that using magisk alone you cannot spoof or edit these variables
+
+## Solutions
+
+For that reason, many people use tools that inject code into the targetted app's runtime, so it spoofs what they see. The ids in your system remain the same, but using these spoofs you can alter what the apps see, and to them it would look different. One popular one is called [LSPOSED](https://github.com/LSposed/LSposed). Due to the problem of unable to spoof using Magisk only, I made a seperate LSPosed module that will spoof everything that purely Magisk cannot. You can find it here: [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
+
+## Legal Disclaimer
+
+**THIS MODULE IS FOR EDUCATIONAL, TESTING, AND DEVELOPMENT PURPOSES ONLY.**
+
+- Use this module responsibly and only on devices you own
+- Do NOT use to bypass app restrictions, violate terms of service, or engage in fraudulent activity
+- The author (@yubunus) is NOT responsible for any misuse or damage
+- Changing device identifiers may violate app terms of service
+- Some apps may ban accounts for device spoofing
+- Use at your own risk
 
 ## Installation
 
@@ -103,14 +72,14 @@ They are supported via our companion Xposed module: [DeviceSpoofLab-Hooks](https
 
 1. **Download the module**
 
-   - Download `devicespooflab-v2.0.zip` from Releases
+   - Download `devicespooflab-v2.1.zip` from Releases
 
 2. **Install via Magisk Manager**
 
    - Open Magisk Manager
    - Tap **Modules** (bottom navigation)
    - Tap **Install from storage**
-   - Select the downloaded zip file
+   - Select the downloaded zip file(push using adb push devicespooflab-v2.1.zip /sdcard/Download/)
    - Wait for installation
    - **Reboot** when prompted
 
@@ -142,87 +111,6 @@ They are supported via our companion Xposed module: [DeviceSpoofLab-Hooks](https
    # Should output: google/cheetah/cheetah:15/AP4A.241205.013/12621605:user/release-keys
    ```
 
----
-
-## Usage
-
-### CLI Interface
-
-After installation and reboot, run the CLI:
-
-```bash
-adb shell
-su
-devicespooflabs
-```
-
-You'll see:
-
-```
-  ____             _           ____                    __ _          _
- |  _ \  _____   _(_) ___ ___ / ___| _ __   ___   ___ / _| |    __ _| |__  ___
- | | | |/ _ \ \ / / |/ __/ _ \\___ \| '_ \ / _ \ / _ \ |_| |   / _` | '_ \/ __|
- | |_| |  __/\ V /| | (_|  __/ ___) | |_) | (_) | (_) |  _| |__| (_| | |_) \__ \
- |____/ \___| \_/ |_|\___\___|____/| .__/ \___/ \___/|_| |_____\__,_|_.__/|___/
-                                   |_|                              v2.0
-
--------------------------------------------
-
-[INFO] Active: Pixel 7 Pro - Android 15
-[INFO] Model: Pixel 7 Pro
-
--------------------------------------------
-
-  [1] Persona Management
-  [2] App Data / Cache Tools
-  [0] Exit
-
--------------------------------------------
-
-Select an option:
-```
-
-### Persona Management Menu
-
-```
-[1] View current persona      - Shows persona details with live validation
-[2] Generate NEW persona      - Creates new random identifiers
-[3] Restore default persona   - Restores original device identity from backup
-[0] Back
-```
-
-### Generate NEW Persona
-
-When generating a new persona:
-
-```
-[1] Continue and generate new identifiers only
-    - New serial number
-    - New ANDROID_ID
-    - Same Pixel 7 Pro device props
-    - Requires reboot
-
-[2] Continue and generate new identifiers + reset ALL apps
-    - All of the above PLUS
-    - Clears all third-party app data
-    - Clears Chrome/WebView/GMS
-    - Completely fresh start
-
-[0] Cancel
-```
-
-### App Data / Cache Tools
-
-```
-[1] Clear ALL third-party app data
-[2] Clear Chrome/WebView/GMS only
-[3] Clear EVERYTHING (third-party + system)
-[4] List installed third-party apps
-[0] Back
-```
-
----
-
 ## Flow
 
 1. **Install module** → Reboot
@@ -240,8 +128,6 @@ When generating a new persona:
 5. **Reboot** after generating new persona for full effect
 6. **Persona persists** across all future reboots until changed
 
----
-
 ## File Locations
 
 | File                                                                 | Purpose                      |
@@ -250,8 +136,6 @@ When generating a new persona:
 | `/data/adb/modules/devicespooflab/personas/backup.conf`              | Original device backup       |
 | `/data/adb/modules/devicespooflab/personas/pixel7pro_android15.conf` | Default template             |
 | `/data/local/tmp/devicespooflab.log`                                 | Module logs                  |
-
----
 
 ## Verification Commands
 
@@ -278,8 +162,6 @@ getprop ro.serialno
 cat /data/local/tmp/devicespooflab.log
 ```
 
----
-
 ## Reverting Changes
 
 ### Restore Original Device
@@ -298,8 +180,6 @@ Or completely remove:
 2. Go to **Modules**
 3. Uninstall "DeviceSpoofLabs"
 4. Reboot
-
----
 
 ## Troubleshooting
 
@@ -332,38 +212,13 @@ Or completely remove:
 - Some apps use hardware-level identifiers (see Limitations)
 - Use Shamiko/LSPosed for additional hiding
 
----
-
 ## Complementary Tools
 
 For best results, consider using:
 
 - [Shamiko](https://github.com/LSPosed/LSPosed.github.io/releases) - Hide root from apps
 - [Play Integrity Fix](https://github.com/chiteroman/PlayIntegrityFix) - Pass Play Integrity
-- [LSPosed](https://github.com/LSPosed/LSPosed) - For additional spoofing via Xposed modules
-
----
-
-## Changelog
-
-### v2.0
-
-- Complete rewrite with persona management system
-- Interactive CLI (`devicespooflabs` command)
-- Updated to Pixel 7 Pro Android 15 (December 2024 security patch)
-- Auto-apply persona on boot
-- Backup and restore original device
-- App data clearing tools
-- Randomized serial and ANDROID_ID per persona
-- Comprehensive logging
-
-### v1.0
-
-- Initial release
-- Basic Pixel 7 Pro Android 14 spoofing
-- Manual ANDROID_ID changer script
-
----
+- [LSPosed](https://github.com/LSPosed/LSPosed) - For additional spoofing via Xposed modules. Or forks for later android versions and actively maintained modules.
 
 ## License
 
