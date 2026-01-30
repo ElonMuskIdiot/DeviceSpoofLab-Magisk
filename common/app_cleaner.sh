@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Clears all 3rd party apps and some system apps(to prevent webview and chrome from saving data)
 
 SCRIPT_DIR="${0%/*}"

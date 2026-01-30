@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Applies critical props early; remaining spoofing runs in service.sh
 
 MODDIR=${0%/*}

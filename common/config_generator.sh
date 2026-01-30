@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Config Generator - Creates config files from current device state
 
 SCRIPT_DIR="${0%/*}"

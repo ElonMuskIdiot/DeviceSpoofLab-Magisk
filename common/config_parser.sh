@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Config Parser - Reads config files and applies props
 
 # Resolve generator expressions like ${RANDOM_HEX:16}

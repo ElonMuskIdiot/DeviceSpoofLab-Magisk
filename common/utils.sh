@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # DeviceSpoofLabs - Shared Utilities
 # Common functions, colors, and path definitions
 

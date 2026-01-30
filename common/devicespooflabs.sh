@@ -1,7 +1,8 @@
+#!/system/bin/sh
 # DeviceSpoofLabs CLI
 # Interactive tool for managing device spoofing=
 
-VERSION="2.1"
+VERSION="2.2"
 
 SCRIPT_DIR="${0%/*}"
 [ -f "${SCRIPT_DIR}/utils.sh" ] && . "${SCRIPT_DIR}/utils.sh"
@@ -73,7 +74,35 @@ regenerate_identifiers() {
     print_ok "New identifiers generated!"
 }
 
+is_dimension_spoof_enabled() {
+    local FILE="${CONFIG_DIR}/hardware.conf"
+    [ -f "$FILE" ] && grep -q "^ENABLED,SCREEN_WIDTH," "$FILE"
+}
+
+toggle_dimension_spoof() {
+    local FILE="${CONFIG_DIR}/hardware.conf"
+    [ ! -f "$FILE" ] && { print_error "hardware.conf not found"; return 1; }
+
+    if is_dimension_spoof_enabled; then
+        # Disable dimension spoofing
+        sed -i 's/^ENABLED,SCREEN_WIDTH,/DISABLED,SCREEN_WIDTH,/' "$FILE"
+        sed -i 's/^ENABLED,SCREEN_HEIGHT,/DISABLED,SCREEN_HEIGHT,/' "$FILE"
+        sed -i 's/^ENABLED,SCREEN_DENSITY,/DISABLED,SCREEN_DENSITY,/' "$FILE"
+        print_ok "Dimension spoofing DISABLED"
+    else
+        # Enable dimension spoofing
+        sed -i 's/^DISABLED,SCREEN_WIDTH,/ENABLED,SCREEN_WIDTH,/' "$FILE"
+        sed -i 's/^DISABLED,SCREEN_HEIGHT,/ENABLED,SCREEN_HEIGHT,/' "$FILE"
+        sed -i 's/^DISABLED,SCREEN_DENSITY,/ENABLED,SCREEN_DENSITY,/' "$FILE"
+        print_ok "Dimension spoofing ENABLED"
+    fi
+    print_info "Reboot to apply changes"
+}
+
 edit_config() {
+    local DIM_STATUS="OFF"
+    is_dimension_spoof_enabled && DIM_STATUS="ON"
+
     echo ""
     print_color "$CYAN" "Select config to edit:"
     echo "  [1] device_identity.conf"
@@ -83,6 +112,7 @@ edit_config() {
     echo "  [5] identifiers.conf"
     echo "  [6] carrier.conf"
     echo "  [7] custom.conf"
+    echo "  [8] Toggle Dimension Spoof (currently: $DIM_STATUS)"
     echo "  [0] Back"
     echo ""
     echo -n "Choice: "
@@ -97,6 +127,7 @@ edit_config() {
         5) FILE="identifiers.conf" ;;
         6) FILE="carrier.conf" ;;
         7) FILE="custom.conf" ;;
+        8) toggle_dimension_spoof; return ;;
         0) return ;;
         *) print_error "Invalid"; return ;;
     esac

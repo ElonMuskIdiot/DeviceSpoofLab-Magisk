@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Applies all spoofed props after boot, plus ANDROID_ID and screen settings
 
 MODDIR=${0%/*}

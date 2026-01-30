@@ -1,3 +1,4 @@
+#!/system/bin/sh
 # Magisk Module Installation Script
 # Sets proper permissions during module installation
 
@@ -17,7 +18,7 @@ set_permissions() {
 
 ui_print " "
 ui_print "********************************"
-ui_print "   DeviceSpoofLabs v2.1"
+ui_print "   DeviceSpoofLabs v2.2"
 ui_print "********************************"
 ui_print " "
 ui_print "- Installing module files..."
