@@ -2,7 +2,7 @@
 # DeviceSpoofLabs CLI
 # Interactive tool for managing device spoofing=
 
-VERSION="2.2"
+VERSION="2.3"
 
 SCRIPT_DIR="${0%/*}"
 [ -f "${SCRIPT_DIR}/utils.sh" ] && . "${SCRIPT_DIR}/utils.sh"

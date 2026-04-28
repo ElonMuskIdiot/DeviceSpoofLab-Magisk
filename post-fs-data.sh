@@ -11,6 +11,16 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [post-fs-data] $1" >> "$LOG_FILE"
 }
 
+should_apply_prop() {
+    return 0
+}
+
+if [ -f "${MODDIR}/common/prop_safety.sh" ]; then
+    . "${MODDIR}/common/prop_safety.sh"
+else
+    log "WARN: prop_safety.sh missing - applying all props (legacy mode)"
+fi
+
 resolve_value() {
     local VAL="$1"
     case "$VAL" in
@@ -74,7 +84,9 @@ apply_early_props() {
 
         local VALUE
         VALUE=$(resolve_value "$RAW")
-        [ -n "$VALUE" ] && apply_prop "$PROP" "$VALUE"
+        [ -n "$VALUE" ] || continue
+        should_apply_prop "$PROP" "$VALUE" "post-fs-data" "$(basename "$EARLY_CONF")" || continue
+        apply_prop "$PROP" "$VALUE"
 
     done < "$EARLY_CONF"
 }

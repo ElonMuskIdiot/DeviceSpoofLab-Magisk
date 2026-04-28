@@ -1,6 +1,18 @@
 #!/system/bin/sh
 # Config Parser - Reads config files and applies props
 
+SCRIPT_DIR="${SCRIPT_DIR:-${0%/*}}"
+
+should_apply_prop() {
+    return 0
+}
+
+if [ -f "${SCRIPT_DIR}/prop_safety.sh" ]; then
+    . "${SCRIPT_DIR}/prop_safety.sh"
+elif type log >/dev/null 2>&1; then
+    log "WARN: prop_safety.sh missing - applying all props (legacy mode)"
+fi
+
 # Resolve generator expressions like ${RANDOM_HEX:16}
 resolve_value() {
     local VALUE="$1"
@@ -117,6 +129,14 @@ parse_config_file() {
             continue
         fi
 
+        # Skip synthetic entries handled by dedicated apply_* functions
+        case "$PROP_NAME" in
+            ANDROID_ID|SCREEN_*)
+                SKIPPED=$((SKIPPED + 1))
+                continue
+                ;;
+        esac
+
         local RESOLVED_VALUE=$(resolve_value "$RAW_VALUE")
 
         if [ -z "$RESOLVED_VALUE" ]; then
@@ -128,6 +148,11 @@ parse_config_file() {
         if [ "$DRY_RUN" -eq 1 ]; then
             log "DRY-RUN: Would set $PROP_NAME = $RESOLVED_VALUE"
         else
+            if ! should_apply_prop "$PROP_NAME" "$RESOLVED_VALUE" "config-parser" "$FILENAME"; then
+                SKIPPED=$((SKIPPED + 1))
+                continue
+            fi
+
             # Apply the prop
             if resetprop -n "$PROP_NAME" "$RESOLVED_VALUE" 2>/dev/null; then
                 APPLIED=$((APPLIED + 1))

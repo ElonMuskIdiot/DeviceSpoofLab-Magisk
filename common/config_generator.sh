@@ -121,23 +121,34 @@ EOF
     # ro.hardware
     echo "# ro.hardware" >> "$OUT"
     echo "# Original: $(get_current ro.hardware)" >> "$OUT"
-    echo "ENABLED,ro.hardware,cheetah" >> "$OUT"
+    echo "DISABLED,ro.hardware,cheetah" >> "$OUT"
     echo "" >> "$OUT"
 
     # ro.board.platform
     echo "# ro.board.platform" >> "$OUT"
     echo "# Original: $(get_current ro.board.platform)" >> "$OUT"
-    echo "ENABLED,ro.board.platform,gs201" >> "$OUT"
+    echo "DISABLED,ro.board.platform,gs201" >> "$OUT"
     echo "" >> "$OUT"
 
-    # Partition-specific props (all partitions)
-    for PART in product system system_ext vendor vendor_dlkm odm; do
+    # Partition-specific props that are normally safe to spoof.
+    for PART in product system system_ext; do
         echo "# ro.product.${PART}.brand" >> "$OUT"
         echo "ENABLED,ro.product.${PART}.brand,google" >> "$OUT"
         echo "ENABLED,ro.product.${PART}.manufacturer,Google" >> "$OUT"
         echo "ENABLED,ro.product.${PART}.model,Pixel 7 Pro" >> "$OUT"
         echo "ENABLED,ro.product.${PART}.name,cheetah" >> "$OUT"
         echo "ENABLED,ro.product.${PART}.device,cheetah" >> "$OUT"
+        echo "" >> "$OUT"
+    done
+
+    # Vendor/ODM/DLKM identity is device-specific and opt-in for compatibility.
+    for PART in vendor vendor_dlkm odm bootimage system_dlkm; do
+        echo "# ro.product.${PART}.brand" >> "$OUT"
+        echo "DISABLED,ro.product.${PART}.brand,google" >> "$OUT"
+        echo "DISABLED,ro.product.${PART}.manufacturer,Google" >> "$OUT"
+        echo "DISABLED,ro.product.${PART}.model,Pixel 7 Pro" >> "$OUT"
+        echo "DISABLED,ro.product.${PART}.name,cheetah" >> "$OUT"
+        echo "DISABLED,ro.product.${PART}.device,cheetah" >> "$OUT"
         echo "" >> "$OUT"
     done
 
@@ -194,12 +205,12 @@ EOF
 
     echo "# ro.build.version.release" >> "$OUT"
     echo "# Original: $(get_current ro.build.version.release)" >> "$OUT"
-    echo "ENABLED,ro.build.version.release,15" >> "$OUT"
+    echo "DISABLED,ro.build.version.release,15" >> "$OUT"
     echo "" >> "$OUT"
 
     echo "# ro.build.version.sdk" >> "$OUT"
     echo "# Original: $(get_current ro.build.version.sdk)" >> "$OUT"
-    echo "ENABLED,ro.build.version.sdk,35" >> "$OUT"
+    echo "DISABLED,ro.build.version.sdk,35" >> "$OUT"
     echo "" >> "$OUT"
 
     echo "# ro.build.version.security_patch" >> "$OUT"
@@ -208,8 +219,11 @@ EOF
     echo "" >> "$OUT"
 
     # Partition fingerprints
-    for PART in system system_ext vendor odm bootimage product; do
+    for PART in system system_ext product; do
         echo "ENABLED,ro.${PART}.build.fingerprint,$FP" >> "$OUT"
+    done
+    for PART in vendor odm bootimage system_dlkm vendor_dlkm; do
+        echo "DISABLED,ro.${PART}.build.fingerprint,$FP" >> "$OUT"
     done
     echo "" >> "$OUT"
 
@@ -220,8 +234,8 @@ EOF
     echo "ENABLED,ro.product.build.tags,release-keys" >> "$OUT"
     echo "ENABLED,ro.product.build.type,user" >> "$OUT"
     echo "ENABLED,ro.product.build.version.incremental,12621605" >> "$OUT"
-    echo "ENABLED,ro.product.build.version.release,15" >> "$OUT"
-    echo "ENABLED,ro.product.build.version.sdk,35" >> "$OUT"
+    echo "DISABLED,ro.product.build.version.release,15" >> "$OUT"
+    echo "DISABLED,ro.product.build.version.sdk,35" >> "$OUT"
 
     chmod 644 "$OUT"
 }
@@ -247,32 +261,32 @@ ENABLED,ro.secure,1
 ENABLED,ro.adb.secure,1
 
 # ro.build.selinux
-ENABLED,ro.build.selinux,0
+DISABLED,ro.build.selinux,0
 
 # Verified boot state (green = locked, orange = unlocked)
-ENABLED,ro.boot.verifiedbootstate,green
+DISABLED,ro.boot.verifiedbootstate,green
 
 # Flash lock state
-ENABLED,ro.boot.flash.locked,1
+DISABLED,ro.boot.flash.locked,1
 
 # VBMeta device state
-ENABLED,ro.boot.vbmeta.device_state,locked
+DISABLED,ro.boot.vbmeta.device_state,locked
 
 # Warranty bit (0 = not voided)
-ENABLED,ro.boot.warranty_bit,0
+DISABLED,ro.boot.warranty_bit,0
 
 # OEM unlock allowed
-ENABLED,sys.oem_unlock_allowed,0
+DISABLED,sys.oem_unlock_allowed,0
 
 # Verity mode
-ENABLED,ro.boot.veritymode,enforcing
+DISABLED,ro.boot.veritymode,enforcing
 
 # Crypto state
-ENABLED,ro.crypto.state,encrypted
+DISABLED,ro.crypto.state,encrypted
 
 # Anti-emulator props
-ENABLED,ro.kernel.qemu,0
-ENABLED,ro.boot.qemu,0
+DISABLED,ro.kernel.qemu,0
+DISABLED,ro.boot.qemu,0
 EOF
 
     chmod 644 "$OUT"
@@ -293,31 +307,31 @@ generate_hardware() {
 
 # Boot hardware
 # Original: $(get_current ro.boot.hardware)
-ENABLED,ro.boot.hardware,cheetah
+DISABLED,ro.boot.hardware,cheetah
 
 # Boot mode
-ENABLED,ro.boot.mode,normal
+DISABLED,ro.boot.mode,normal
 
 # CPU ABI
 # Original: $(get_current ro.product.cpu.abi)
-ENABLED,ro.product.cpu.abi,arm64-v8a
-ENABLED,ro.product.cpu.abilist,arm64-v8a,armeabi-v7a,armeabi
-ENABLED,ro.product.cpu.abilist64,arm64-v8a
+DISABLED,ro.product.cpu.abi,arm64-v8a
+DISABLED,ro.product.cpu.abilist,arm64-v8a,armeabi-v7a,armeabi
+DISABLED,ro.product.cpu.abilist64,arm64-v8a
 
 # Architecture
-ENABLED,ro.arch,arm64
+DISABLED,ro.arch,arm64
 
 # Screen settings (applied via wm command, not resetprop)
 # Original: ${W}x${H} @ ${D}dpi
-ENABLED,SCREEN_WIDTH,1440
-ENABLED,SCREEN_HEIGHT,3120
-ENABLED,SCREEN_DENSITY,512
+DISABLED,SCREEN_WIDTH,1440
+DISABLED,SCREEN_HEIGHT,3120
+DISABLED,SCREEN_DENSITY,512
 
 # LCD density prop
-ENABLED,ro.sf.lcd_density,512
+DISABLED,ro.sf.lcd_density,512
 
 # Treble
-ENABLED,ro.treble.enabled,true
+DISABLED,ro.treble.enabled,true
 EOF
 
     chmod 644 "$OUT"
@@ -342,11 +356,11 @@ generate_identifiers() {
 # Serial number
 # Original: $(get_current ro.serialno)
 ENABLED,ro.serialno,\${RANDOM_SERIAL}
-ENABLED,ro.boot.serialno,\${RANDOM_SERIAL}
+DISABLED,ro.boot.serialno,\${RANDOM_SERIAL}
 
 # Bootloader version
 # Original: $(get_current ro.bootloader)
-ENABLED,ro.bootloader,cheetah-1.2-\${RANDOM_HEX:8}
+DISABLED,ro.bootloader,cheetah-1.2-\${RANDOM_HEX:8}
 
 # ANDROID_ID (Settings.Secure, not a prop)
 # Original: $(get_setting android_id)
@@ -366,19 +380,19 @@ generate_carrier() {
 # ============================================
 
 # GSM Operator (carrier name)
-ENABLED,gsm.operator.alpha,T-Mobile
-ENABLED,gsm.operator.numeric,310260
+DISABLED,gsm.operator.alpha,T-Mobile
+DISABLED,gsm.operator.numeric,310260
 
 # SIM Operator
-ENABLED,gsm.sim.operator.alpha,T-Mobile
-ENABLED,gsm.sim.operator.numeric,310260
-ENABLED,gsm.sim.operator.iso-country,us
+DISABLED,gsm.sim.operator.alpha,T-Mobile
+DISABLED,gsm.sim.operator.numeric,310260
+DISABLED,gsm.sim.operator.iso-country,us
 
 # Timezone
-ENABLED,persist.sys.timezone,America/Los_Angeles
+DISABLED,persist.sys.timezone,America/Los_Angeles
 
 # USB config
-ENABLED,persist.sys.usb.config,none
+DISABLED,persist.sys.usb.config,none
 EOF
 
     chmod 644 "$OUT"

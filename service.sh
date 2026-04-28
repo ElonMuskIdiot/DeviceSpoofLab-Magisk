@@ -10,6 +10,16 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [service] $1" >> "$LOG_FILE"
 }
 
+should_apply_prop() {
+    return 0
+}
+
+if [ -f "${MODDIR}/common/prop_safety.sh" ]; then
+    . "${MODDIR}/common/prop_safety.sh"
+else
+    log "WARN: prop_safety.sh missing - applying all props (legacy mode)"
+fi
+
 generate_hex() {
     local LEN=${1:-16}
     cat /dev/urandom | tr -dc 'a-f0-9' | head -c "$LEN"
@@ -105,7 +115,9 @@ apply_config_file() {
 
         local VALUE
         VALUE=$(resolve_value "$RAW")
-        [ -n "$VALUE" ] && apply_prop "$PROP" "$VALUE"
+        [ -n "$VALUE" ] || continue
+        should_apply_prop "$PROP" "$VALUE" "service" "$NAME" || continue
+        apply_prop "$PROP" "$VALUE"
 
     done < "$FILE"
 }
@@ -195,6 +207,24 @@ apply_screen_settings() {
     fi
 }
 
+ensure_cli_in_path() {
+    local LAUNCHER="${MODDIR}/system/bin/devicespooflabs"
+    [ -f "$LAUNCHER" ] || return 0
+
+    # Module's system/ overlay applied - nothing to do
+    [ -x /system/bin/devicespooflabs ] && return 0
+
+    # KernelSU/APatch don't always overlay system/ on every kernel.
+    # These dirs are in PATH for root sessions and persist across reboots.
+    for BIN in /data/adb/ksu/bin /data/adb/ap/bin; do
+        if [ -d "$BIN" ]; then
+            ln -sf "$LAUNCHER" "$BIN/devicespooflabs" 2>/dev/null && \
+                log "CLI symlink: $BIN/devicespooflabs -> $LAUNCHER"
+            return 0
+        fi
+    done
+}
+
 log "Service starting..."
 
 chmod 755 "$MODDIR/common/"*.sh 2>/dev/null
@@ -204,8 +234,11 @@ if [ -f "${MODDIR}/disable" ]; then
     exit 0
 fi
 
+# Ensure CLI is in PATH regardless of persona state (CLI activates personas)
+ensure_cli_in_path
+
 if [ ! -f "$PERSONA_FLAG" ]; then
-    log "No active persona - skipping"
+    log "No active persona - skipping spoof"
     exit 0
 fi
 

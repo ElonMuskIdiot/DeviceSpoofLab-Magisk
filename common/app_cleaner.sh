@@ -37,6 +37,11 @@ clear_app_data() {
 get_protected_packages() {
     echo "com.topjohnwu.magisk"
     echo "io.github.vvb2060.magisk"
+    echo "me.weishu.kernelsu"
+    echo "com.rifsxd.ksunext"
+    echo "com.sukisu.ultra"
+    echo "com.twj.wksu"
+    echo "me.bmax.apatch"
     echo "org.meowcat.edxposed.manager"
     echo "de.robv.android.xposed.installer"
     echo "io.github.lsposed.manager"
@@ -53,6 +58,11 @@ is_protected_package() {
     case "$PKG" in
         com.topjohnwu.magisk|\
         io.github.vvb2060.magisk|\
+        me.weishu.kernelsu|\
+        com.rifsxd.ksunext|\
+        com.sukisu.ultra|\
+        com.twj.wksu|\
+        me.bmax.apatch|\
         org.meowcat.edxposed.manager|\
         de.robv.android.xposed.installer|\
         io.github.lsposed.manager|\
@@ -63,7 +73,7 @@ is_protected_package() {
         com.enflick.android.TextNow)
             return 0
             ;;
-        *ksuwebui*)
+        *ksuwebui*|*kernelsu*|*apatch*)
             return 0
             ;;
     esac

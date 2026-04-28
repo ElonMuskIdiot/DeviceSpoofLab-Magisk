@@ -1,23 +1,20 @@
 # DeviceSpoofLabs
 
-A Magisk module for spoofing device identity properties. Spoofs device as a brand new Google Pixel 7 Pro running Android 15 with persona management. For development and testing purposes only. Best if used with [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
+A Magisk/KernelSU/APatch module for spoofing device identity properties. Spoofs device identity toward a Google Pixel 7 Pro profile with persona management. Best if used with [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
 
 ## Features
 
 1. **Interactive CLI** (`devicespooflabs` command)
-
    - Persona management menu
    - App data/cache clearing tools
    - Validation and status checks
 
 2. **Automatic Persona Persistence**
-
    - Persona saves across reboots
    - Auto-applies on every boot
    - No manual intervention needed after setup
 
 3. **Backup & Restore**
-
    - Original device identity backed up on first boot
    - Easy restore to original state
 
@@ -29,54 +26,44 @@ A Magisk module for spoofing device identity properties. Spoofs device as a bran
 ### Spoofed Properties Include
 
 - Device brand, model, manufacturer, name
-- Hardware platform (Google Tensor G2 / gs201)
-- Build fingerprint (real Pixel 7 Pro Android 15 fingerprint)
+- Hardware platform
+- Build fingerprint (Pixel 7 Pro Android 15 fingerprint)
 - Security patch level (2024-12-05)
-- System, vendor, and ODM partition props
-- Anti-emulator detection props
+- System partition props
+- Vendor, ODM, boot, framework-version, and anti-emulator props
 - Serial number (randomized per persona)
 - ANDROID_ID (randomized per persona)
-- Screen size/density (1440x3120 @ 512dpi)
+- Screen size/density (1440x3120 @ 512dpi, disabled by default)
 
-## Limitations (Cannot Be Spoofed with Pure Magisk)
+## Limitations (Cannot Be Spoofed with Pure Magisk/KernelSU/APatch)
 
 1. Props
    There are 2 ways to spoof props. One is spoofing them at boot runtime, and the other is spoofing them after boot. The problem with spoofing props at boot runtime is that it directly affects your systems Hardware Abstraction Layer(HAL), so if you change props such as ro.hardware, it will corrupt your boot process and prevent your device from booting. The second problem which is spoofing these after "HAL" and after boot is that many apps capture your props and device data at boot runtime, so if you change props after boot, it will not affect the apps that have already captured your props. An example is apps that use Cronet.
 2. Framework level identifiers
-   Some identifiers that apps track, such as IMEI, IMSI, MediaDrm Id, GAID, Keystore Ids, etc. are stored in the framework layer, and are not accessible to Magisk. Pretty much means that using magisk alone you cannot spoof or edit these variables
+   Some identifiers that apps track, such as IMEI, IMSI, MediaDrm Id, GAID, Keystore Ids, etc. are stored in the framework layer, and are not accessible to root-only modules. Pretty much means that using Magisk/KernelSU/APatch alone you cannot spoof or edit these variables
 
 ## Solutions
 
-For that reason, many people use tools that inject code into the targetted app's runtime, so it spoofs what they see. The ids in your system remain the same, but using these spoofs you can alter what the apps see, and to them it would look different. One popular one is called [LSPOSED](https://github.com/LSposed/LSposed). Due to the problem of unable to spoof using Magisk only, I made a seperate LSPosed module that will spoof everything that purely Magisk cannot. You can find it here: [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
-
-## Legal Disclaimer
-
-**THIS MODULE IS FOR EDUCATIONAL, TESTING, AND DEVELOPMENT PURPOSES ONLY.**
-
-- Use this module responsibly and only on devices you own
-- Do NOT use to bypass app restrictions, violate terms of service, or engage in fraudulent activity
-- The author (@yubunus) is NOT responsible for any misuse or damage
-- Changing device identifiers may violate app terms of service
-- Some apps may ban accounts for device spoofing
-- Use at your own risk
+For that reason, many people use tools that inject code into the targetted app's runtime, so it spoofs what they see. The ids in your system remain the same, but using these spoofs you can alter what the apps see, and to them it would look different. One popular one is called [LSPOSED](https://github.com/LSposed/LSposed). Due to the problem of unable to spoof using Magisk/KernelSU/APatch only, I made a seperate LSPosed module that will spoof everything that purely a root module cannot. You can find it here: [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
 
 ## Installation
 
 ### Prerequisites
 
 - Rooted Android device
-- [Magisk](https://github.com/topjohnwu/Magisk) v24.0 or higher
-- Magisk Manager app
+- One of the following root solutions:
+  - [Magisk](https://github.com/topjohnwu/Magisk) v24.0 or higher
+  - [KernelSU](https://github.com/tiann/KernelSU)
+  - [APatch](https://github.com/bmax121/APatch)
+- Your preferred manager app (Magisk/KernelSU/APatch)
 
 ### Installation Steps
 
 1. **Download the module**
+   - Download `devicespooflab-v2.3.zip` from Releases
 
-   - Download `devicespooflab-v2.1.zip` from Releases
-
-2. **Install via Magisk Manager**
-
-   - Open Magisk Manager
+2. **Install via your preferred manager**
+   - Open your preferred manager (Magisk/KernelSU/APatch)
    - Tap **Modules** (bottom navigation)
    - Tap **Install from storage**
    - Select the downloaded zip file(push using adb push devicespooflab-v2.1.zip /sdcard/Download/)
@@ -84,7 +71,6 @@ For that reason, many people use tools that inject code into the targetted app's
    - **Reboot** when prompted
 
 3. **First Boot**
-
    - Module automatically backs up your original device identity
    - **No spoofing is applied yet** - your device remains unchanged
    - Run `devicespooflabs` to set up your first persona
@@ -128,15 +114,6 @@ For that reason, many people use tools that inject code into the targetted app's
 5. **Reboot** after generating new persona for full effect
 6. **Persona persists** across all future reboots until changed
 
-## File Locations
-
-| File                                                                 | Purpose                      |
-| -------------------------------------------------------------------- | ---------------------------- |
-| `/data/adb/modules/devicespooflab/personas/current.conf`             | Active persona configuration |
-| `/data/adb/modules/devicespooflab/personas/backup.conf`              | Original device backup       |
-| `/data/adb/modules/devicespooflab/personas/pixel7pro_android15.conf` | Default template             |
-| `/data/local/tmp/devicespooflab.log`                                 | Module logs                  |
-
 ## Verification Commands
 
 ```bash
@@ -176,7 +153,7 @@ devicespooflabs
 
 Or completely remove:
 
-1. Open Magisk Manager
+1. Open your preferred manager (Magisk/KernelSU/APatch)
 2. Go to **Modules**
 3. Uninstall "DeviceSpoofLabs"
 4. Reboot
@@ -185,10 +162,11 @@ Or completely remove:
 
 ### Props Not Changing
 
-1. Verify module is enabled in Magisk Manager
+1. Verify module is enabled in your preferred manager
 2. Check logs: `cat /data/local/tmp/devicespooflab.log`
 3. Ensure no conflicting modules (MagiskHide Props Config)
 4. Reboot device
+5. If it still fails, make an issue and send logs
 
 ### devicespooflabs Command Not Found
 
