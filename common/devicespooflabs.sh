@@ -564,6 +564,8 @@ handle_app_tools_menu() {
 main() {
     check_root
     check_module
+	
+	if [ $# -eq 0 ]; then
 
     # Main menu loop
     while true; do
@@ -587,6 +589,21 @@ main() {
                 ;;
         esac
     done
+    exit 0
+	fi
+	
+
+	case "$1" in
+		1)
+			regenerate_identifiers
+			activate_persona
+			;;
+		*)
+			exit 1
+			;;
+	esac
+
+    
 }
 
 main "$@"

@@ -2,6 +2,14 @@
 
 A Magisk/KernelSU/APatch module for spoofing device identity properties. Spoofs device identity toward a Google Pixel 7 Pro profile with persona management. Best if used with [DeviceSpoofLab-Hooks](https://github.com/yubunus/DeviceSpoofLab-Hooks)
 
+## Generate new profile
+
+```bash
+adb shell
+su
+devicespooflabsnew
+```
+
 ## Features
 
 1. **Interactive CLI** (`devicespooflabs` command)

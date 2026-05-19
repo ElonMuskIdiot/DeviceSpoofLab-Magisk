@@ -30,7 +30,8 @@ set_permissions() {
     ui_print "- Setting permissions"
     set_perm_recursive "$MODPATH" 0 0 0755 0644
     set_perm_recursive "$MODPATH/common" 0 0 0755 0755
-    set_perm "$MODPATH/system/bin/devicespooflabs" 0 2000 0755
+        set_perm "$MODPATH/system/bin/devicespooflabs" 0 2000 0755
+    set_perm "$MODPATH/system/bin/devicespooflabsnew" 0 2000 0755
     set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
     set_perm "$MODPATH/service.sh" 0 0 0755
 }
